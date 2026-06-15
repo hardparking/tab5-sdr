@@ -1,0 +1,34 @@
+# Tab5-SDR minimal defaults — derived from the proven Tab5-HID-Device config
+# (same board/BSP), with the TinyUSB-device and LVGL bits dropped for Stage 1-2.
+CONFIG_IDF_TARGET="esp32p4"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+
+# PSRAM — the IQ ring buffer and waterfall history live here.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_SPEED_200M=y
+CONFIG_SPIRAM_MEMTEST=n
+
+# Bluetooth: the Tab5 BSP unconditionally pulls in NimBLE/esp_hosted, so the
+# controller must stay enabled even though the SDR app doesn't use BT.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_BLE_42_FEATURES_SUPPORTED=y
+
+# esp_hosted link to the on-board ESP32-C6 (Wi-Fi/BT coprocessor) over SDIO.
+CONFIG_ESP_HOSTED_SDIO_RESET_ACTIVE_LOW=y
+CONFIG_ESP_HOSTED_SDIO_GPIO_RESET_SLAVE=15
+CONFIG_ESP_HOSTED_SDIO_PIN_CMD=13
+CONFIG_ESP_HOSTED_SDIO_PIN_CLK=12
+CONFIG_ESP_HOSTED_SDIO_PIN_D0=11
+CONFIG_ESP_HOSTED_SDIO_PRIV_PIN_D1_4BIT_BUS=10
+CONFIG_ESP_HOSTED_SDIO_PIN_D2=9
+CONFIG_ESP_HOSTED_SDIO_PIN_D3=8
+CONFIG_ESP_HOSTED_ENABLE_BT_BLUEDROID=y
+CONFIG_SLAVE_IDF_TARGET_ESP32C6=y
+
+# Don't halt on panic — reboot so a brownout/crash loop is visible from the host.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=n
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1=n
+CONFIG_LOG_COLORS=y
+CONFIG_IDF_EXPERIMENTAL_FEATURES=y

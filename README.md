@@ -87,11 +87,14 @@ cheaper.
 This project is licensed under the **GNU General Public License v2.0 or later**
 (see [LICENSE](LICENSE)), as required by librtlsdr.
 
-- **librtlsdr** — Steve Markgraf, Dimitri Stolnikov, et al. (GPL-2.0+). The
-  ESP-IDF USB-host port in `components/librtlsdr/` derives from the
-  [xtrsdr](https://github.com/) effort to run librtlsdr on ESP32 USB host.
+- **[librtlsdr](https://github.com/steve-m/librtlsdr)** — Steve Markgraf,
+  Dimitri Stolnikov, et al. (GPL-2.0+). The ESP-IDF USB-host port in
+  `components/librtlsdr/` derives from
+  [XTR1984/xtrsdr](https://github.com/XTR1984/xtrsdr), which runs librtlsdr on
+  the ESP32 USB host stack.
 - **Board support** (`components/bsp/`) — derived from
-  [Tab5-HID-Device](https://github.com/) by Hiroki Kawakami (MIT).
+  [Tab5-HID-Device](https://github.com/hardparking/Tab5-HID-Device) by
+  Hiroki Kawakami (MIT).
 - **esp-dsp**, **esp_codec_dev**, and the LCD/touch drivers — Espressif (Apache-2.0).
 
 Modifications to the vendored librtlsdr sources are documented inline (e.g. the

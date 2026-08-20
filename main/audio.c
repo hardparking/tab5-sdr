@@ -48,7 +48,7 @@ void audio_init(void)
         ESP_LOGE(TAG, "codec open failed");
         return;
     }
-    esp_codec_dev_set_out_vol(s_codec, 70);
+    esp_codec_dev_set_out_vol(s_codec, AUDIO_VOL_DEFAULT);
 
     s_sb = xStreamBufferCreate(SB_BYTES, 1);
     xTaskCreatePinnedToCore(audio_out_task, "audio_out", 4096, NULL, 9, NULL, 1);

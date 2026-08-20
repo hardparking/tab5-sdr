@@ -68,7 +68,7 @@ static ppa_client_handle_t s_ppa;
 static int s_fb_index;
 
 static uint32_t s_center;
-static int s_volume = 70;
+static int s_volume = AUDIO_VOL_DEFAULT;
 static int s_squelch = -60;
 static int s_nfm = 0;
 static const char *s_label = "WFM broadcast";

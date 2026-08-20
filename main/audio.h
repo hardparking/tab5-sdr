@@ -13,6 +13,10 @@ extern "C" {
 
 #define AUDIO_SAMPLE_RATE 48000
 
+/* Volume applied at boot, before the user touches the UI. Kept low so an
+ * unattended power-on isn't at full tilt; the UI seeds its own slider from it. */
+#define AUDIO_VOL_DEFAULT 10
+
 /* Bring up the ES8388 codec and start the output task. */
 void audio_init(void);
 

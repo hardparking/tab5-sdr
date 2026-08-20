@@ -1,0 +1,26 @@
+menu "Tab5 Board Support"
+
+choice BSP_TAB5_PANEL
+    prompt "Display panel driver"
+    default BSP_TAB5_PANEL_AUTO
+    help
+        The Tab5's MIPI-DSI panel has no I2C presence and no readable ID, so it
+        cannot be probed. Auto-detect infers the panel from which touch
+        controller answers on I2C, which holds for the board revisions we know
+        about but is an inference, not a measurement.
+
+        If your unit boots with working audio and touch but a black screen, the
+        inference is wrong for your revision — force the other driver here.
+
+config BSP_TAB5_PANEL_AUTO
+    bool "Auto-detect from touch controller"
+
+config BSP_TAB5_PANEL_FORCE_ILI9881C
+    bool "Force ILI9881C"
+
+config BSP_TAB5_PANEL_FORCE_ST7123
+    bool "Force ST7123"
+
+endchoice
+
+endmenu

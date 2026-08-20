@@ -9,6 +9,9 @@
 #include "driver/i2c_master.h"
 #include "esp_lcd_touch.h"
 
+/* Fixed I2C address of the ST7123 touch controller — used to probe for it. */
+#define ST7123_TOUCH_I2C_ADDR (0x55)
+
 typedef struct {
     i2c_master_bus_handle_t i2c_bus;
     bsp_size_t size;

@@ -30,7 +30,8 @@ esp_err_t gt911_touch_init(const gt911_touch_config_t *config, gt911_touch_t *to
 
     esp_lcd_panel_io_i2c_config_t io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
     io_config.scl_speed_hz = config->scl_speed_hz;
-    io_config.dev_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP;
+    io_config.dev_addr = config->i2c_addr ? config->i2c_addr : GT911_I2C_ADDR_BACKUP;
+    ESP_LOGI(TAG, "GT911 at 0x%02x", (unsigned)io_config.dev_addr);
 
     esp_err_t ret = esp_lcd_new_panel_io_i2c(config->i2c_bus, &io_config, &state->io_handle);
     if (ret != ESP_OK) {

@@ -34,6 +34,11 @@ static const char *TAG = "BSP_TAB5";
 static i2c_master_bus_handle_t i2c0;
 static pi4io_t pi4ioe1, pi4ioe2;
 
+typedef enum {
+    BSP_PANEL_ILI9881C,
+    BSP_PANEL_ST7123,
+} bsp_panel_type_t;
+
 static void **frame_buffers;
 static ili9881c_lcd_t ili9881c;
 static gt911_touch_t gt911;
@@ -90,8 +95,50 @@ esp_err_t bsp_tab5_init(const bsp_tab5_config_t *config) {
     pi4io_set_output(pi4ioe1, 5, true);   // TP_RST = High
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    if (i2c_master_probe(i2c0, 0x55, 10) == ESP_OK) {
-        // Initialize ST7123 LCD
+    /*
+     * Panel/touch detection.
+     *
+     * The panel sits on MIPI-DSI, which is write-only here: it has no I2C
+     * presence and no ID we can read back. Every DSI init command "succeeds"
+     * whether or not the panel understood it, so a wrong panel driver produces
+     * a black screen with a completely clean log. The only signal available is
+     * which touch controller answers on I2C, and the panel is inferred from
+     * that pairing. Log the raw probe results so a bad inference is visible
+     * from the serial output instead of having to be guessed at.
+     */
+    bool have_st7123_tp = (i2c_master_probe(i2c0, ST7123_TOUCH_I2C_ADDR, 10) == ESP_OK);
+
+    uint8_t gt911_addr = 0;
+    if (i2c_master_probe(i2c0, GT911_I2C_ADDR_PRIMARY, 10) == ESP_OK) {
+        gt911_addr = GT911_I2C_ADDR_PRIMARY;
+    } else if (i2c_master_probe(i2c0, GT911_I2C_ADDR_BACKUP, 10) == ESP_OK) {
+        gt911_addr = GT911_I2C_ADDR_BACKUP;
+    }
+
+    ESP_LOGI(TAG, "touch probe: st7123@0x%02x=%s gt911@0x%02x=%s gt911@0x%02x=%s",
+             ST7123_TOUCH_I2C_ADDR, have_st7123_tp ? "yes" : "no",
+             GT911_I2C_ADDR_PRIMARY, gt911_addr == GT911_I2C_ADDR_PRIMARY ? "yes" : "no",
+             GT911_I2C_ADDR_BACKUP, gt911_addr == GT911_I2C_ADDR_BACKUP ? "yes" : "no");
+
+    if (!have_st7123_tp && !gt911_addr) {
+        ESP_LOGE(TAG, "No touch controller found on I2C0 — cannot identify board revision");
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    bsp_panel_type_t panel = have_st7123_tp ? BSP_PANEL_ST7123 : BSP_PANEL_ILI9881C;
+#if defined(CONFIG_BSP_TAB5_PANEL_FORCE_ILI9881C)
+    panel = BSP_PANEL_ILI9881C;
+    ESP_LOGW(TAG, "panel driver forced to ILI9881C by Kconfig");
+#elif defined(CONFIG_BSP_TAB5_PANEL_FORCE_ST7123)
+    panel = BSP_PANEL_ST7123;
+    ESP_LOGW(TAG, "panel driver forced to ST7123 by Kconfig");
+#endif
+    ESP_LOGI(TAG, "panel driver: %s (inferred from touch; override in menuconfig "
+                  "if the screen stays black)",
+             panel == BSP_PANEL_ST7123 ? "ST7123" : "ILI9881C");
+
+    // Initialize the panel
+    if (panel == BSP_PANEL_ST7123) {
         err = st7123_lcd_init(&(st7123_lcd_config_t){
             .backlight_gpio = GPIO_NUM_22,
             .size = (bsp_size_t){ 720, 1280 },
@@ -100,8 +147,20 @@ esp_err_t bsp_tab5_init(const bsp_tab5_config_t *config) {
         }, &st7123_lcd);
         BSP_RETURN_ERR(err);
         frame_buffers = st7123_lcd_get_frame_buffers(st7123_lcd);
+    } else {
+        err = ili9881c_lcd_init(&(ili9881c_lcd_config_t){
+            .backlight_gpio = GPIO_NUM_22,
+            .size = (bsp_size_t){ 720, 1280 },
+            .pixel_format = BSP_PIXEL_FORMAT_RGB565,
+            .fb_num = config->display.fb_num,
+        }, &ili9881c);
+        BSP_RETURN_ERR(err);
+        frame_buffers = ili9881c_lcd_get_frame_buffers(ili9881c);
+    }
 
-        // Initialize ST7123 Touch Panel
+    // Initialize the touch controller that actually answered, independent of
+    // the panel choice above — the two are separate parts.
+    if (have_st7123_tp) {
         err = st7123_touch_init(&(st7123_touch_config_t){
             .i2c_bus = i2c0,
             .size = (bsp_size_t){ 720, 1280 },
@@ -111,18 +170,7 @@ esp_err_t bsp_tab5_init(const bsp_tab5_config_t *config) {
             .interrupt = config->touch.interrupt,
         }, &st7123_touch);
         BSP_RETURN_ERR(err);
-    } else if (i2c_master_probe(i2c0, 0x14, 10) == ESP_OK) {
-        // Initialize ILI9881C LCD
-        err = ili9881c_lcd_init(&(ili9881c_lcd_config_t){
-            .backlight_gpio = GPIO_NUM_22,
-            .size = (bsp_size_t){ 720, 1280 },
-            .pixel_format = BSP_PIXEL_FORMAT_RGB565,
-            .fb_num = config->display.fb_num,
-        }, &ili9881c);
-        BSP_RETURN_ERR(err);
-        frame_buffers = ili9881c_lcd_get_frame_buffers(ili9881c);
-
-        // Initialize GT911 Touch Panel
+    } else {
         err = gt911_touch_init(&(gt911_touch_config_t){
             .i2c_bus = i2c0,
             .size = (bsp_size_t){ 720, 1280 },
@@ -130,10 +178,9 @@ esp_err_t bsp_tab5_init(const bsp_tab5_config_t *config) {
             .rst_gpio = GPIO_NUM_NC,
             .scl_speed_hz = 100000,
             .interrupt = config->touch.interrupt,
+            .i2c_addr = gt911_addr,
         }, &gt911);
         BSP_RETURN_ERR(err);
-    } else {
-        return ESP_ERR_NOT_FOUND;
     }
 
     if (config->wifi.enable || config->bluetooth.enable) {

@@ -18,3 +18,9 @@ __pycache__/
 *.pyc
 
 .DS_Store
+
+# Local flash dumps (32MB factory image)
+backup/
+
+# Machine-specific IDF env helper (hardcoded serial port)
+idfenv.sh

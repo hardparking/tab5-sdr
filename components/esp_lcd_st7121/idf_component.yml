@@ -1,0 +1,5 @@
+version: "1.0.0"
+description: "ST7121 driver vendored from M5Stack M5Tab5-UserDemo"
+license: "Apache-2.0"
+dependencies:
+  idf: ">=5.4.0"

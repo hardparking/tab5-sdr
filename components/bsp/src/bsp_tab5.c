@@ -19,6 +19,8 @@
 #include "gt911/gt911.h"
 #include "st7123/st7123_lcd.h"
 #include "st7123/st7123_touch.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_touch_st7123.h"
 #include "nvs_flash.h"
 #include "esp_hosted.h"
 #ifdef CONFIG_BT_BLUEDROID_ENABLED
@@ -37,6 +39,7 @@ static pi4io_t pi4ioe1, pi4ioe2;
 typedef enum {
     BSP_PANEL_ILI9881C,
     BSP_PANEL_ST7123,
+    BSP_PANEL_ST7121,
 } bsp_panel_type_t;
 
 static void **frame_buffers;
@@ -115,7 +118,7 @@ esp_err_t bsp_tab5_init(const bsp_tab5_config_t *config) {
         gt911_addr = GT911_I2C_ADDR_BACKUP;
     }
 
-    ESP_LOGI(TAG, "touch probe: st7123@0x%02x=%s gt911@0x%02x=%s gt911@0x%02x=%s",
+    ESP_LOGI(TAG, "touch probe: sitronix@0x%02x=%s gt911@0x%02x=%s gt911@0x%02x=%s",
              ST7123_TOUCH_I2C_ADDR, have_st7123_tp ? "yes" : "no",
              GT911_I2C_ADDR_PRIMARY, gt911_addr == GT911_I2C_ADDR_PRIMARY ? "yes" : "no",
              GT911_I2C_ADDR_BACKUP, gt911_addr == GT911_I2C_ADDR_BACKUP ? "yes" : "no");
@@ -132,14 +135,37 @@ esp_err_t bsp_tab5_init(const bsp_tab5_config_t *config) {
 #elif defined(CONFIG_BSP_TAB5_PANEL_FORCE_ST7123)
     panel = BSP_PANEL_ST7123;
     ESP_LOGW(TAG, "panel driver forced to ST7123 by Kconfig");
+#else
+    /* Explicit overrides bypass firmware identification, not touch detection.
+     * ST7121 and ST7123 share 0x55. M5Stack identifies them using
+     * touch FW register 0x0000: 1 = ST7121, 3 = ST7123. */
+    if (have_st7123_tp) {
+        esp_lcd_panel_io_handle_t probe_io = NULL;
+        esp_lcd_panel_io_i2c_config_t probe_config = ESP_LCD_TOUCH_IO_I2C_ST7123_CONFIG();
+        probe_config.scl_speed_hz = 100000;
+        err = esp_lcd_new_panel_io_i2c(i2c0, &probe_config, &probe_io);
+        BSP_RETURN_ERR(err);
+        uint8_t fw_version = 0;
+        err = esp_lcd_panel_io_rx_param(probe_io, 0x0000, &fw_version, 1);
+        esp_lcd_panel_io_del(probe_io);
+        BSP_RETURN_ERR(err);
+        ESP_LOGI(TAG, "Sitronix touch FW version: %u", fw_version);
+        if (fw_version == 1) {
+            panel = BSP_PANEL_ST7121;
+        } else if (fw_version != 3) {
+            ESP_LOGE(TAG, "Unsupported Sitronix FW version: %u", fw_version);
+            return ESP_ERR_NOT_SUPPORTED;
+        }
+    }
 #endif
-    ESP_LOGI(TAG, "panel driver: %s (inferred from touch; override in menuconfig "
-                  "if the screen stays black)",
+    ESP_LOGI(TAG, "panel driver: %s (touch inference or explicit Kconfig override)",
+             panel == BSP_PANEL_ST7121 ? "ST7121" :
              panel == BSP_PANEL_ST7123 ? "ST7123" : "ILI9881C");
 
     // Initialize the panel
-    if (panel == BSP_PANEL_ST7123) {
+    if (panel == BSP_PANEL_ST7123 || panel == BSP_PANEL_ST7121) {
         err = st7123_lcd_init(&(st7123_lcd_config_t){
+            .is_st7121 = panel == BSP_PANEL_ST7121,
             .backlight_gpio = GPIO_NUM_22,
             .size = (bsp_size_t){ 720, 1280 },
             .pixel_format = BSP_PIXEL_FORMAT_RGB565,

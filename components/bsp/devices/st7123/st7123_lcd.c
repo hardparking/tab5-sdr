@@ -12,6 +12,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_mipi_dsi.h"
 #include "esp_lcd_st7123.h"
+#include "esp_lcd_st7121.h"
 
 struct st7123_lcd_state {
     ledc_timer_config_t ledc_timer;
@@ -76,7 +77,7 @@ esp_err_t st7123_lcd_init(const st7123_lcd_config_t *config, st7123_lcd_t *lcd) 
         .bus_id = 0,
         .num_data_lanes = 2,
         .phy_clk_src = MIPI_DSI_PHY_CLK_SRC_DEFAULT,
-        .lane_bit_rate_mbps = 870,
+        .lane_bit_rate_mbps = config->is_st7121 ? 965 : 870,
     };
     ret = esp_lcd_new_dsi_bus(&bus_config, &state->mipi_dsi_bus);
     if (ret != ESP_OK) goto err_ldo;
@@ -94,18 +95,18 @@ esp_err_t st7123_lcd_init(const st7123_lcd_config_t *config, st7123_lcd_t *lcd) 
     esp_lcd_dpi_panel_config_t dpi_config = {
         .virtual_channel = 0,
         .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
-        .dpi_clock_freq_mhz = 75,
+        .dpi_clock_freq_mhz = config->is_st7121 ? 70 : 75,
         .pixel_format = rgb888 ? LCD_COLOR_PIXEL_FORMAT_RGB888 : LCD_COLOR_PIXEL_FORMAT_RGB565,
         .num_fbs = state->fb_num,
         .video_timing = {
             .h_size = config->size.width,
             .v_size = config->size.height,
-            .hsync_pulse_width = 40,
-            .hsync_back_porch = 140,
+            .hsync_pulse_width = config->is_st7121 ? 2 : 40,
+            .hsync_back_porch = config->is_st7121 ? 40 : 140,
             .hsync_front_porch = 40,
-            .vsync_pulse_width = 2,
-            .vsync_back_porch = 8,
-            .vsync_front_porch = 220,
+            .vsync_pulse_width = config->is_st7121 ? 20 : 2,
+            .vsync_back_porch = config->is_st7121 ? 24 : 8,
+            .vsync_front_porch = config->is_st7121 ? 200 : 220,
         },
         .flags = {
             .use_dma2d = 1,
@@ -129,7 +130,22 @@ esp_err_t st7123_lcd_init(const st7123_lcd_config_t *config, st7123_lcd_t *lcd) 
         .vendor_config = &vendor_config,
     };
 
-    ret = esp_lcd_new_panel_st7123(state->io, &panel_config, &state->panel);
+    /* Use the official Tab5 ST7121 driver defaults, never ST7123 commands.
+     * Timings above follow M5Tab5-UserDemo b4e356bc, preserving ST7123 values. */
+    st7121_vendor_config_t vendor_config_7121 = {
+        .init_cmds = NULL,
+        .init_cmds_size = 0,
+        .mipi_config = {
+            .dsi_bus = state->mipi_dsi_bus,
+            .dpi_config = &dpi_config,
+        },
+    };
+    if (config->is_st7121) {
+        panel_config.vendor_config = &vendor_config_7121;
+        ret = esp_lcd_new_panel_st7121(state->io, &panel_config, &state->panel);
+    } else {
+        ret = esp_lcd_new_panel_st7123(state->io, &panel_config, &state->panel);
+    }
     if (ret != ESP_OK) goto err_io;
 
     ret = esp_lcd_panel_reset(state->panel);

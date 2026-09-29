@@ -8,6 +8,7 @@
 #include "misc/bsp_display.h"
 
 typedef struct {
+    bool is_st7121; /* shared framebuffer/backlight wrapper, distinct panel driver */
     int backlight_gpio;
     bsp_size_t size;
     bsp_pixel_format_t pixel_format;

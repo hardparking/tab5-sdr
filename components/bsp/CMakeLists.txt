@@ -5,7 +5,7 @@ idf_component_register(
     PRIV_INCLUDE_DIRS "inc_private" "devices"
     # public headers: bsp_tab5.h includes esp_lcd_touch.h and esp_codec_dev.h
     REQUIRES esp_lcd_touch esp_codec_dev
-    PRIV_REQUIRES driver esp_driver_i2s nvs_flash bt)
+    PRIV_REQUIRES driver esp_driver_i2s nvs_flash bt esp_lcd_st7121)
 
 # Enable Link Time Optimization
 # Disabled locally: esp-elf 14.2.0 LTO emits the `xesppie` ISA extension that

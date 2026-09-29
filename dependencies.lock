@@ -167,6 +167,6 @@ direct_dependencies:
 - espressif/esp_lcd_touch_st7123
 - espressif/esp_wifi_remote
 - idf
-manifest_hash: 3bd5a5fdab642c09e036c41828e9cfb781a417653342eafcc8cf17942f816a61
+manifest_hash: d90bb723930fc479c61701b887df022128cd3909b6ae924ec9b347bac6823cb8
 target: esp32p4
 version: 2.0.0

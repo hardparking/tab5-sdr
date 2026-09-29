@@ -1583,8 +1583,20 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
 
 
 
-	/* Get device manufacturer and product id */
-	//r = rtlsdr_get_usb_strings(dev, dev->manufact, dev->product, NULL);
+	/* Read cached descriptors from the already-open ESP-IDF handle.
+	 * Missing identity is only fatal for R828D: Blog V4 uses a different
+	 * reference clock and input/filter switching from generic R828D. */
+	usb_device_info_t dev_info = {0};
+	int identity_valid = usb_host_device_info(dev->devh, &dev_info) == ESP_OK &&
+		getUsbDescString(dev_info.str_desc_manufacturer, dev->manufact) == 0 &&
+		getUsbDescString(dev_info.str_desc_product, dev->product) == 0 &&
+		dev->manufact[0] && dev->product[0];
+	if (identity_valid) {
+		ESP_LOGI(TAG, "USB identity: manufacturer='%s' product='%s'",
+		         dev->manufact, dev->product);
+	} else {
+		ESP_LOGW(TAG, "USB manufacturer/product unavailable; model identity unknown");
+	}
 
 	/* Probe tuners */
 	ESP_LOGI("librtlsdr","ro:  probe tuners");
@@ -1644,6 +1656,14 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
 	}
 
 found:
+	if (dev->tuner_type == RTLSDR_TUNER_R828D && !identity_valid) {
+		ESP_LOGE(TAG, "Cannot distinguish Blog V4 from generic R828D without USB identity");
+		rtlsdr_set_i2c_repeater(dev, 0);
+		rtlsdr_close(dev);
+		*out_dev = NULL;
+		return -EIO;
+	}
+
 	/* use the rtl clock value by default */
 	dev->tun_xtal = dev->rtl_xtal;
 	dev->tuner = &tuners[dev->tuner_type];

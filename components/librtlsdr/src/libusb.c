@@ -234,17 +234,18 @@ int libusb_control_transfer(usb_device_handle_t dev_handle,uint8_t bmRequestType
 
 
 //helpers
-int getUsbDescString(const usb_str_desc_t *str_desc, char * str) {
-	if (str_desc == NULL) {
-		return -1;
+int getUsbDescString(const usb_str_desc_t *str_desc, char *str) {
+	/* USB bLength includes the two header bytes, not just UTF-16 data.
+	 * The librtlsdr API accepts optional 256-byte output buffers. */
+	if (str == NULL) return 0;
+	str[0] = '\0';
+	if (str_desc == NULL || str_desc->bDescriptorType != 3 ||
+	    str_desc->bLength < 2 || (str_desc->bLength & 1)) return -1;
+	int chars = (str_desc->bLength - 2) / 2; /* at most 126 code units */
+	for (int i = 0; i < chars; i++) {
+		uint16_t ch = str_desc->wData[i];
+		str[i] = ch <= 0x7f ? (char)ch : '?';
 	}
-	int j =0;
-	for (int i = 0; i < str_desc->bLength / 2; i++) {
-	  if (str_desc->wData[i] > 0xFF) {
-		continue;
-	  }
-	  str[j++] = (char)(str_desc->wData[i]);
-	}
-	str[j]='\0';
+	str[chars] = '\0';
 	return 0;
 }
